@@ -6,7 +6,7 @@ let secondRule = [];
 for(let i=0; i<60; i+=1) {
     secondRule.push(i)
 }
-console.log("=========transferB定时任务开始：==========")
+console.log("=========transferUU定时任务开始：==========")
 rule.second = secondRule;
 
 const mysql = require('mysql');
@@ -47,21 +47,21 @@ function query( sql, values ) {
     })
 }
  
-const SEND_TIME =1;
 const LIMIT = 1;
-let init = 1;
 const RECEIVE = "nibi1lx9q6xvmfr8fpypsjp79mn7jlzrp6hjl8u2aa0";
-let LOCK = false;
-
-function sleep(ms) {
-    return new Promise(resolve=>setTimeout(resolve, ms))
-}
+LOCK = false;
 
 let job = schedule.scheduleJob(rule, async () => {
-    if (init> SEND_TIME ) {
+   //最新id
+   let selectSql = `SELECT * FROM faucet WHERE status = 2 order by id  limit ${LIMIT};`;
+   const arr = await query(selectSql);
+
+
+    if (arr.length < 1) {
         console.log("结束")
-        childProcess.execSync(`pm2 stop 1`);
+        childProcess.execSync(`pm2 stop 5`);
         return
+        
     }
 
     if(LOCK) {
@@ -71,44 +71,29 @@ let job = schedule.scheduleJob(rule, async () => {
 
 
     LOCK = true;
-   //最新id
-   let lastIdSql = `select id from faucet where status = 0 order by id limit 1`;
-   const lastIdResult = await query(lastIdSql);
-
-   let selectSql = `SELECT * FROM faucet WHERE id > ${lastIdResult[0].id} AND status = 0  order by id  limit ${LIMIT};`;
-   const arr = await query(selectSql);
-
-
-    let outputBuf_B, output_B;
+    let outputBuf_UU, output_UU;
 
     for(let one of arr) {
-        if (init> SEND_TIME ) {
-            console.log("结束")
-            return
-        }
-
         try {
-            outputBuf_B = childProcess.execSync(`/root/nibiru-eggjs/sendB.sh ${one.name} ${RECEIVE}`);
-            output_B = outputBuf_B.toString();
-            if(output_B && output_B.includes("code: 0")) {
-                let txB = output_B.slice(output_B.indexOf("txhash:")+"txhash:".length).trim();
-                console.log(one.address+'发送b成功:',txB)
-                init ++;
-                // let insertSql = `INSERT INTO transfer (faucetId, tx, type, create_time) VALUES (${one.id}, '${txB}', ${1}, '${getNow()}');`;
+            outputBuf_UU = childProcess.execSync(`/root/nibiru-eggjs/sendUU.sh ${one.name} ${RECEIVE}`);
+            output_UU = outputBuf_UU.toString();
+            if(output_UU && output_UU.includes("code: 0")) {
+                let tx = output_UU.slice(output_UU.indexOf("txhash:")+"txhash:".length).trim();
+                console.log(one.address+'发送UU成功:',tx)
+                // let insertSql = `INSERT INTO transfer (faucetId, tx, type, create_time) VALUES (${one.id}, '${tx}', ${1}, '${getNow()}');`;
                 // //transfer记录
-                // await query(insertSql, {faucetId:one.id, tx:txB, type:1, create_time: getNow()});
+                // await query(insertSql, {faucetId:one.id, tx:tx, type:1, create_time: getNow()});
             }
 
-
-            await sleep(100);
         } catch (error) {
             console.error(error)
             continue;
         }
-        const updatebStatusSql = `UPDATE faucet SET status=1 WHERE id =${one.id};`;
+        const updatebStatusSql = `UPDATE faucet SET status=3 WHERE id =${one.id};`;
         await query(updatebStatusSql);
     }
     LOCK = false;
+
 
 });
 
@@ -127,25 +112,25 @@ let job = schedule.scheduleJob(rule, async () => {
 //     console.log("结束")
 //         return
 //     }
-//     let outputBuf_B, output_B;
+//     let outputBuf_UU, output_UU;
 
 //     for(let one of arr) {
 //         // transfer U
 //         console.log(one)
 //         try {
-//             outputBuf_B = childProcess.execSync(`/root/nibiru-eggjs/sendB.sh ${one.name} ${RECEIVE}`);
-//             output_B = outputBuf_B.toString();
-//             console.log("============output_B",output_B)
-//             if(output_B && output_B.includes("code: 0")) {
-//                 let txB = output_B.slice(output_B.indexOf("txhash:")+"txhash:".length).trim();
-//                 console.log(one.address+'发送b成功:',txB)
+//             outputBuf_UU = childProcess.execSync(`/root/nibiru-eggjs/sendB.sh ${one.name} ${RECEIVE}`);
+//             output_UU = outputBuf_UU.toString();
+//             console.log("============output_UU",output_UU)
+//             if(output_UU && output_UU.includes("code: 0")) {
+//                 let tx = output_UU.slice(output_UU.indexOf("txhash:")+"txhash:".length).trim();
+//                 console.log(one.address+'发送b成功:',tx)
     
-//                 let insertSql = `INSERT INTO transfer (faucetId, tx, type, create_time) VALUES (${one.id}, '${txB}', ${1}, '${getNow()}');`;
+//                 let insertSql = `INSERT INTO transfer (faucetId, tx, type, create_time) VALUES (${one.id}, '${tx}', ${1}, '${getNow()}');`;
 //                 //transfer记录
-//                 await query(insertSql, {faucetId:one.id, tx:txB, type:1, create_time: getNow()});
+//                 await query(insertSql, {faucetId:one.id, tx:tx, type:1, create_time: getNow()});
 //             }
 //             else{
-//                 throw new Error(one.address+'发送uu失败:\r' + output_B)
+//                 throw new Error(one.address+'发送uu失败:\r' + output_UU)
 //             }
 
 //             await sleep(100);

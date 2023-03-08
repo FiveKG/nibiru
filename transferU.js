@@ -1,14 +1,12 @@
 const childProcess = require("child_process");
-const fs = require("fs");
-const path = require("path");
-const { sleep, getNow } = require("./app/extend/helper");
+const dateFns = require('date-fns');
 const schedule = require('node-schedule');
 let rule = new schedule.RecurrenceRule();
 let secondRule = [];
-for(let i=0; i<60; i+=15) {
+for(let i=0; i<60; i+=1) {
     secondRule.push(i)
 }
-console.log("=========定时任务开始，发送U：15s==========")
+console.log("=========transferU定时任务开始：==========")
 rule.second = secondRule;
 
 const mysql = require('mysql');
@@ -19,6 +17,13 @@ const pool = mysql.createPool({
       password : 'Uranus12#$',
       database : 'nibiru'
     }); 
+/**
+ * @description 返回当前时间
+ * @returns {String}}
+ */
+function getNow() {
+    return dateFns.format(new Date(), "yyyy-MM-dd HH:mm:ss");
+}
 
 function query( sql, values ) {
     // 返回一个 Promise
@@ -41,117 +46,101 @@ function query( sql, values ) {
         })
     })
 }
-     
+ 
+const LIMIT = 1;
+const RECEIVE = "nibi1lx9q6xvmfr8fpypsjp79mn7jlzrp6hjl8u2aa0";
+LOCK = false;
+
 let job = schedule.scheduleJob(rule, async () => {
-   //全部发送
-   let selectSql = `SELECT * FROM faucet WHERE status <> 3 AND status <> 2  order by id desc  limit 1;`;
-   let one = await query(selectSql);
-   if (one.length < 1 )
-       return
-   let updateStatus = 1;
-   console.log('执行:',one)
-   let outputBuff, output;
+   //最新id
+   let selectSql = `SELECT * FROM faucet WHERE status = 1 order by id  limit ${LIMIT};`;
+   const arr = await query(selectSql);
+
+    if (arr.length < 1) {
+        console.log("结束")
+        childProcess.execSync(`pm2 stop 2`);
+        return
+        
+    }
+
+    if(LOCK) {
+        console.log("LOCK")
+        return
+    }
 
 
-//    // transfer B
-//    try {
-//        outputBuff = childProcess.execSync(`/root/sendB.sh ${one[0].name} nibi1nhltz0erh8p22kwwulywkhklk2g4p4k9lfvrj3`);
-//    } catch (error) {
-//        console.log(one[0].address+'发送b失败:',outputBuff.toString())
-//    }
-//    output = outputBuff.toString()
-//    if(output) {
-//        let txB = output.slice(output.indexOf("txhash:")+"txhash:".length).trim();
-//        console.log(one[0].address+'发送b成功:',txB)
+    LOCK = true;
+    let outputBuf_U, output_U;
 
-//        updateStatus = 1;
-//        let insertSql = `INSERT INTO transfer (faucetId, tx, type, create_time) VALUES (${one[0].id}, '${txB}', ${1}, '${getNow()}');`;
-//        //transfer记录
-//        await query(insertSql, {faucetId:one[0].id, tx:txB, type:1, create_time: getNow()});
-//    }
+    for(let one of arr) {
+        try {
+            outputBuf_U = childProcess.execSync(`/root/nibiru-eggjs/sendU.sh ${one.name} ${RECEIVE}`);
+            output_U = outputBuf_U.toString();
+            if(output_U && output_U.includes("code: 0")) {
+                let tx = output_U.slice(output_U.indexOf("txhash:")+"txhash:".length).trim();
+                console.log(one.address+'发送U成功:',tx)
+                // let insertSql = `INSERT INTO transfer (faucetId, tx, type, create_time) VALUES (${one.id}, '${tx}', ${1}, '${getNow()}');`;
+                // //transfer记录
+                // await query(insertSql, {faucetId:one.id, tx:tx, type:1, create_time: getNow()});
+            }
 
-  // transfer U
-   try {
-       outputBuff = childProcess.execSync(`/root/sendU.sh ${one[0].name} nibi15ce6jgw8p5f0vt8jlgwt8zu7clkruav9p8x796`);
-   } catch (error) {
-       console.error(one[0].address+ "发送发送u失败:",error)
-   }
-   output = outputBuff.toString()
-   
-   if(output) {
-       let txU = output.slice(output.indexOf("txhash:")+"txhash:".length).trim();
-       console.log(one[0].address+'发送u成功:',txU)
+        } catch (error) {
+            console.error(error)
+            continue;
+        }
+        const updatebStatusSql = `UPDATE faucet SET status=2 WHERE id =${one.id};`;
+        await query(updatebStatusSql);
+    }
+    LOCK = false;
 
 
-       let insertSql = `INSERT INTO transfer (faucetId, tx, type, create_time) VALUES (${one[0].id}, '${txU}', ${2}, '${getNow()}');`;
-       //transfer记录
-       await query(insertSql);
-   }
-
-
-   updateStatus = 2
-   if(one[0].status !== 0) {
-        updateStatus = 3 //完成
-   }
-
-    const updatebStatusSql = `UPDATE faucet SET status=${updateStatus}, update_time='${getNow()}' WHERE id =${one[0].id};`;
-    await query(updatebStatusSql);
-   
 });
 
 
 
-// (async () => {
+// //test
+// (async()=> {
 //    //全部发送
-//     let selectSql = `SELECT * FROM faucet WHERE status = 0 limit 1;`;
-//     let one = await query(selectSql);
-//     if (one.length < 1 )
+//    let lastIdSql = `select id from faucet where status = 0 order by id limit 1`;
+//    const lastIdResult = await query(lastIdSql);
+
+//    let selectSql = `SELECT * FROM faucet WHERE id > ${lastIdResult[0].id} AND status = 0  order by id  limit ${SEND_TIME};`;
+//    const arr = await query(selectSql);
+
+//     if (arr.length < 1 ) {
+//     console.log("结束")
 //         return
-//     let updateStatus = 0;
-//     console.log('执行:',one)
-//     let outputBuff, output;
-
-
-//     // transfer B
-//     try {
-//         outputBuff = childProcess.execSync(`/root/sendB.sh ${one[0].name} nibi1nhltz0erh8p22kwwulywkhklk2g4p4k9lfvrj3`);
-//     } catch (error) {
-//         console.log(one[0].address+'发送b失败:',outputBuff.toString())
 //     }
-//     output = outputBuff.toString()
-//     if(output) {
-//         let txB = output.slice(output.indexOf("txhash:")+"txhash:".length).trim();
-//         console.log(one[0].address+'发送b成功:',txB)
+//     let outputBuf_U, output_U;
 
-//         updateStatus = 1;
-//         let insertSql = `INSERT INTO transfer (faucetId, tx, type, create_time) VALUES (${one[0].id}, '${txB}', ${1}, '${getNow()}');`;
-//         //transfer记录
-//         await query(insertSql, {faucetId:one[0].id, tx:txB, type:1, create_time: getNow()});
-//     }
-
-//    // transfer U
-//     try {
-//         outputBuff = childProcess.execSync(`/root/sendU.sh ${one[0].name} nibi1nhltz0erh8p22kwwulywkhklk2g4p4k9lfvrj3`);
-//     } catch (error) {
-//         console.error(one[0].address+ "发送发送u失败:",error)
-//     }
-//     output = outputBuff.toString()
+//     for(let one of arr) {
+//         // transfer U
+//         console.log(one)
+//         try {
+//             outputBuf_U = childProcess.execSync(`/root/nibiru-eggjs/sendB.sh ${one.name} ${RECEIVE}`);
+//             output_U = outputBuf_U.toString();
+//             console.log("============output_U",output_U)
+//             if(output_U && output_U.includes("code: 0")) {
+//                 let tx = output_U.slice(output_U.indexOf("txhash:")+"txhash:".length).trim();
+//                 console.log(one.address+'发送b成功:',tx)
     
-//     if(output) {
-//         let txU = output.slice(output.indexOf("txhash:")+"txhash:".length).trim();
-//         console.log(one[0].address+'发送u成功:',txU)
+//                 let insertSql = `INSERT INTO transfer (faucetId, tx, type, create_time) VALUES (${one.id}, '${tx}', ${1}, '${getNow()}');`;
+//                 //transfer记录
+//                 await query(insertSql, {faucetId:one.id, tx:tx, type:1, create_time: getNow()});
+//             }
+//             else{
+//                 throw new Error(one.address+'发送uu失败:\r' + output_U)
+//             }
 
-//         updateStatus = 2;
-//         let insertSql = `INSERT INTO transfer (faucetId, tx, type, create_time) VALUES (${one[0].id}, '${txU}', ${2}, '${getNow()}');`;
-//         //transfer记录
-//         await query(insertSql);
-//     }
+//             await sleep(100);
+//         } catch (error) {
+//             console.error(error)
+//             return
+//         }
 
-//     updateStatus=3
-//     if(updateStatus!== 0) {
-//         const updatebStatusSql = `UPDATE faucet SET status=${updateStatus} WHERE id =${one[0].id};`;
+
+//         const updatebStatusSql = `UPDATE faucet SET status=1 WHERE id =${one.id};`;
 //         await query(updatebStatusSql);
-//     }
-// })();
+//         }
+// })()
 
-      

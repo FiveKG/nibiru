@@ -6,6 +6,9 @@ const spawn = require('cross-spawn');
 const axios = require('axios');
 const HttpsProxyAgent = require("https-proxy-agent");
 const dateFns = require('date-fns');
+const Humanoid = require("humanoid-js");
+const { checkServerIdentity } = require('tls');
+
 
 module.exports = {
 
@@ -15,12 +18,49 @@ module.exports = {
         let addressIndex = output.indexOf("address:");
         let pubkeyIndex = output.indexOf("pubkey:");
         let mnemonicIndex = output.indexOf("mnemonic:");
+        let skIndex = output.indexOf("password.");
 
         let address = output.slice(addressIndex+"address:".length, pubkeyIndex).trim();
         let pubkey = output.slice(pubkeyIndex+"pubkey:".length, mnemonicIndex).trim();
-
+        let sk = output.slice(skIndex+"password.".length).trim();
         this.app.config.newUser = {name, address, pubkey};
-        return {name, address, pubkey, isFaucet: false, isSendB: false, isSendU: false};
+        return {name, address, pubkey, isFaucet: false, isSendB: false, isSendU: false, sk:sk};
+    },
+
+    async checkNetwork() {
+         // 隧道域名和端口
+         let tunnelHost = 'http-dynamic-S03.xiaoxiangdaili.com'
+         let tunnelPort = '10030'
+ 
+         //curl -X POST -d '{"address": "'"$ADDR"'", "coins": ["11000000unibi","100000000000unusd","100000000000usdt"]}' $FAUCET_URL  100,000,000
+        const data = {
+            "address":"nibi1cvc238jgjryukxww78u6tnc3g3jfutc7zjrxra",
+            "coins":["110000000unibi","1000000000unusd","1000000000uusdt"]
+        }
+         // 配置用户名和密码
+         let username = '948474751868096512';
+         let password = 'Qtelb2BV';
+             // ... some code
+         const headers = {
+                 "Accept": "*/*",
+                 "Accept-Encoding": "gzip, deflate, br",
+                 "Connection": "keep-alive",
+                 "Content-Length": Buffer.byteLength(JSON.stringify(data)),
+                 "user-agent": "PostmanRuntime/7.31.1",
+                 'Content-Type': 'application/json',
+             };
+
+
+        try {
+             let humanoid = new Humanoid(`http://${username}:${password}@${tunnelHost}:${tunnelPort}`);
+             let response = await humanoid.post("https://faucet.itn-1.nibiru.fi/", JSON.stringify(data), headers)
+             // })
+             if (response.statusCode === 503 )
+                return false
+            return true
+         } catch (error) {
+             throw(error)
+         }
     },
 
          /**
@@ -37,33 +77,45 @@ module.exports = {
      */
     async faucet(address){
         // 隧道域名和端口
-        let tunnelHost = 'http-dynamic-S02.xiaoxiangdaili.com'
+        let tunnelHost = 'http-dynamic-S03.xiaoxiangdaili.com'
         let tunnelPort = '10030'
 
         //curl -X POST -d '{"address": "'"$ADDR"'", "coins": ["11000000unibi","100000000000unusd","100000000000usdt"]}' $FAUCET_URL  100,000,000
 
         const data = {
             "address":address,
-            "coins":["110000000unibi","10000000000unusd"]
+            "coins":["110000000unibi","1000000000unusd","1000000000uusdt"]
         }
 
         // 配置用户名和密码
-        let username = '911860910896074752';
-        let password = 'mEPDDTvL';
-
+        let username = '948474751868096512';
+        let password = 'Qtelb2BV';
             // ... some code
+        const headers = {
+                "Accept": "*/*",
+                "Accept-Encoding": "gzip, deflate, br",
+                "Connection": "keep-alive",
+                "Content-Length": Buffer.byteLength(JSON.stringify(data)),
+                "user-agent": "PostmanRuntime/7.31.1",
+                'Content-Type': 'application/json',
+            };
         try {
-            let res = await axios({
-                url: 'https://faucet.testnet-2.nibiru.fi/',
-                method: "post",
-                data: data,
-                httpAgent: new HttpsProxyAgent(`http://${username}:${password}@${tunnelHost}:${tunnelPort}`),
-                httpsAgent: new HttpsProxyAgent(`http://${username}:${password}@${tunnelHost}:${tunnelPort}`),
-            })
+            let humanoid = new Humanoid(`http://${username}:${password}@${tunnelHost}:${tunnelPort}`);
+            let response = await humanoid.post("https://faucet.itn-1.nibiru.fi/", JSON.stringify(data), headers)
+
+            // console.log(`http://${username}:${password}@${tunnelHost}:${tunnelPort}`)
+            // let response = await axios({
+            //     headers,
+            //     url: 'https://faucet.itn-1.nibiru.fi/',
+            //     method: "post",
+            //     data: JSON.stringify(data),
+            //     httpAgent: new HttpsProxyAgent(`http://${username}:${password}@${tunnelHost}:${tunnelPort}`),
+            //     httpsAgent: new HttpsProxyAgent(`http://${username}:${password}@${tunnelHost}:${tunnelPort}`),
+            // })
             
-            return res
+            return response
         } catch (error) {
-            return error
+            throw(error)
         }
     },
 

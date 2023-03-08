@@ -15,6 +15,7 @@
     "egg-scripts": "^2",
     "fs": "0.0.1-security",
     "https-proxy-agent": "^5.0.1",
+    "humanoid-js": "^1.0.1",
     "mysql": "^2.18.1",
     "node-schedule": "^2.1.0",
     "request": "^2.88.2",
@@ -32,9 +33,9 @@
     "node": ">=16.0.0"
   },
   "scripts": {
-    "start": "egg-scripts start --daemon --title=egg-server-nibiru-egg",
+    "start": "egg-scripts start   --port=7001 --daemon --title=egg-server-nibiru-egg ",
     "stop": "egg-scripts stop --title=egg-server-nibiru-egg",
-    "dev": "egg-bin dev --port=7002",
+    "dev": "egg-bin dev --port=7001",
     "debug": "egg-bin debug",
     "test": "npm run lint -- --fix && npm run test-local",
     "test-local": "egg-bin test",

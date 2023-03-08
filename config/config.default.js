@@ -1,7 +1,6 @@
 /* eslint valid-jsdoc: "off" */
 
 'use strict';
-const addrbook = require("./addrbook.json")
 
 /**
  * @param {Egg.EggAppInfo} appInfo app info
@@ -35,7 +34,6 @@ module.exports = appInfo => {
   // add your middleware config here
   config.middleware = [];
   
-  config.addrbook = addrbook;
 
   config.requestIsOk = true;
 
@@ -74,12 +72,6 @@ module.exports = appInfo => {
     agent: false,
 };
 
-  config.addrbook = [
-    {
-        "name":"wildpointer",
-        "add":"nibi1cvc238jgjryukxww78u6tnc3g3jfutc7zjrxra"
-    }
-]
 
 config.redis = {
     client: {

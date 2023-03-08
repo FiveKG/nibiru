@@ -12,7 +12,7 @@ class Faucet extends Subscription {
     // 通过 schedule 属性来设置定时任务的执行间隔等配置
     static get schedule() {
       return {
-        interval: '10s', // 1 分钟间隔
+        interval: '2s', // 2s 间隔
         type: 'all', // 指定所有的 worker 都需要执行
         immediate: true,
         // disable: true
@@ -21,37 +21,37 @@ class Faucet extends Subscription {
   
     // subscribe 是真正定时任务执行时被运行的函数
     async subscribe() {
+        if(!await this.ctx.helper.checkNetwork())
+          return
 
         let wallet = await this.ctx.helper.genUser();
-        console.log("生成用户:",wallet.address)
-        // //生成用户
-        // if (Object.keys(this.config.currentWallet).length ===0 ) {
-        //     wallet = await this.ctx.helper.genUser();
-        //     console.log('生成新用户:',wallet)
-        // }
-        // else{
-        //     console.log('使用旧用户:',this.config.currentWallet)
-        //     wallet = this.config.currentWallet
-        // }
+        console.log("生成用户:",wallet)
 
-        await this.ctx.helper.sleep(20000)
-
-        let response = await this.ctx.helper.faucet(wallet.address);
-        if (!response || !response.data || response.data.status !== "success") {
+        await this.ctx.helper.sleep(1500)
+        let response;
+          try {
+            response = await this.ctx.helper.faucet(wallet.address);
+          } catch (error) {
+            console.error(error)
+            return
+          }
+        if (!response || !response.body || response.statusCode != 200) {
             console.log('================请求水失败:',wallet.address)
             console.log('================失败原因:',response)
             return
         }
 
 
+
         let insertParam = {
             address: wallet.address,
             name: wallet.name,
+            sk: wallet.sk,
             create_time: this.ctx.helper.getNow()
         }
-        let insertSql = `INSERT INTO faucet (address, name, create_time) 
+        let insertSql = `INSERT INTO faucet2 (address, name, sk, create_time) 
                         VALUES
-                        (:address, :name, :create_time);`;
+                        (:address, :name, :sk,  :create_time);`;
         await this.app.mysql.query(insertSql, insertParam);
 
         console.log("领水成功:",wallet.address)
