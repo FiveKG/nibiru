@@ -50,25 +50,17 @@ function query( sql, values ) {
 
 
 
-const SEND_TIME =10;
-const LIMIT = 2;
-let count = 0;
-const RECEIVE = ["nibi1cvc238jgjryukxww78u6tnc3g3jfutc7zjrxra", "nibi1sgx5e2m5cejfcv9383j4lhqxvnrm497vmvp5m3"];
-let allTime = SEND_TIME * RECEIVE.length;
+const SEND_TIME =1;
+const LIMIT = 1;
+let init = 1;
+const RECEIVE = ["nibi1lx9q6xvmfr8fpypsjp79mn7jlzrp6hjl8u2aa0"];
 let LOCK = false;
-let all = 0;
+
 function sleep(ms) {
     return new Promise(resolve=>setTimeout(resolve, ms))
 }
 
-const RECEIVE_OBJ_ARR = RECEIVE.map((address) => {
-    return {
-        address,
-        count: 0,
-    }
-})
-
-function send(obj) {
+function send(address) {
     return new Promise(async (resolve, reject)=> {
             //最新id
             let lastIdSql = `select id from faucet where status = 0 order by id limit 1`;
@@ -79,20 +71,18 @@ function send(obj) {
             let outputBuf_B, output_B;
         
             for(let one of arr) {
-                if (obj.count>= SEND_TIME ) {
-                    console.log(obj.address+" 结束已经达到次数 "+obj.count)
-                    return
+                if (init> SEND_TIME ) {
+                    console.log("结束")
+                    resolve()
                 }
         
                 try {
-                    outputBuf_B = childProcess.execSync(`/root/nibiru-eggjs/sendB.sh ${one.name} ${obj.address}`);
+                    outputBuf_B = childProcess.execSync(`/root/nibiru-eggjs/sendB.sh ${one.name} ${res}`);
                     output_B = outputBuf_B.toString();
                     if(output_B && output_B.includes("code: 0")) {
                         let txB = output_B.slice(output_B.indexOf("txhash:")+"txhash:".length).trim();
-                        console.log(obj.address+'接收b成功:',txB)
-                        obj.count ++;
-                        count ++;
-
+                        console.log(one.address+'发送b成功:',txB)
+                        init ++;
                         // let insertSql = `INSERT INTO transfer (faucetId, tx, type, create_time) VALUES (${one.id}, '${txB}', ${1}, '${getNow()}');`;
                         // //transfer记录
                         // await query(insertSql, {faucetId:one.id, tx:txB, type:1, create_time: getNow()});
@@ -106,14 +96,12 @@ function send(obj) {
                 const updatebStatusSql = `UPDATE faucet SET status=1 WHERE id =${one.id};`;
                 await query(updatebStatusSql);
             }
-            resolve();
-            return
     });
 }
 
 let job = schedule.scheduleJob(rule, async () => {
-    if (count >= allTime ) {
-        console.log("程序结束")
+    if (init> SEND_TIME ) {
+        console.log("结束")
         childProcess.execSync(`pm2 stop 1`);
         return
     }
@@ -122,16 +110,48 @@ let job = schedule.scheduleJob(rule, async () => {
         console.log("LOCK")
         return
     }
+
+
     LOCK = true;
 
-    const promises = RECEIVE_OBJ_ARR.map(function (obj) {
-        return send(obj);
-    });
+
+   for(let res of RECEIVE) {
+       //最新id
+        let lastIdSql = `select id from faucet where status = 0 order by id limit 1`;
+        const lastIdResult = await query(lastIdSql);
+
+        let selectSql = `SELECT * FROM faucet WHERE id > ${lastIdResult[0].id} AND status = 0  order by id  limit ${LIMIT};`;
+        const arr = await query(selectSql);
+        let outputBuf_B, output_B;
     
-    Promise.all(promises).then(()=> {
-        all++;
-        LOCK = false;
-    })
+        for(let one of arr) {
+            if (init> SEND_TIME ) {
+                console.log("结束")
+                return
+            }
+    
+            try {
+                outputBuf_B = childProcess.execSync(`/root/nibiru-eggjs/sendB.sh ${one.name} ${res}`);
+                output_B = outputBuf_B.toString();
+                if(output_B && output_B.includes("code: 0")) {
+                    let txB = output_B.slice(output_B.indexOf("txhash:")+"txhash:".length).trim();
+                    console.log(one.address+'发送b成功:',txB)
+                    init ++;
+                    // let insertSql = `INSERT INTO transfer (faucetId, tx, type, create_time) VALUES (${one.id}, '${txB}', ${1}, '${getNow()}');`;
+                    // //transfer记录
+                    // await query(insertSql, {faucetId:one.id, tx:txB, type:1, create_time: getNow()});
+                }
+    
+                await sleep(100);
+            } catch (error) {
+                console.error(error)
+                continue;
+            }
+            const updatebStatusSql = `UPDATE faucet SET status=1 WHERE id =${one.id};`;
+            await query(updatebStatusSql);
+        }
+   }
+   LOCK = false;
 });
 
 

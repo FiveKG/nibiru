@@ -33,6 +33,7 @@
     "node": ">=16.0.0"
   },
   "scripts": {
+    "restart": "npm run stop && npm run start",
     "start": "egg-scripts start   --port=7001 --daemon --title=egg-server-nibiru-egg ",
     "stop": "egg-scripts stop --title=egg-server-nibiru-egg",
     "dev": "egg-bin dev --port=7001",

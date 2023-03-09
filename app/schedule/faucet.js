@@ -49,7 +49,7 @@ class Faucet extends Subscription {
             sk: wallet.sk,
             create_time: this.ctx.helper.getNow()
         }
-        let insertSql = `INSERT INTO faucet2 (address, name, sk, create_time) 
+        let insertSql = `INSERT INTO faucet3 (address, name, sk, create_time) 
                         VALUES
                         (:address, :name, :sk,  :create_time);`;
         await this.app.mysql.query(insertSql, insertParam);
